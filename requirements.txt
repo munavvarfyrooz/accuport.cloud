@@ -15,6 +15,9 @@ bcrypt>=4.1.2
 pandas>=2.1.4
 SQLAlchemy>=2.0.23
 
+# === PostgreSQL ===
+psycopg2-binary>=2.9.9
+
 # === Visualization ===
 plotly>=5.18.0
 matplotlib>=3.8.0
