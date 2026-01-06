@@ -65,7 +65,12 @@ import re
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 if not app.secret_key:
-    raise RuntimeError("SECRET_KEY environment variable must be set")
+    # For Railway: SECRET_KEY must be set in environment variables
+    # Generate one with: python3 -c "import secrets; print(secrets.token_hex(32))"
+    if os.environ.get('RAILWAY_ENVIRONMENT'):
+        raise RuntimeError("SECRET_KEY environment variable must be set in Railway dashboard")
+    else:
+        raise RuntimeError("SECRET_KEY environment variable must be set")
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
 
 # Initialize CSRF protection
