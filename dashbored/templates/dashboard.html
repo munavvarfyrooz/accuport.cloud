@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Accuport{% endblock %}
+{% block meta_description %}Accuport vessel dashboard - Monitor boiler water, engine parameters, potable water, and marine systems. Real-time alerts and compliance tracking for maritime operations.{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Vessel Selector (hidden for vessel users) -->
+    {% if not user.is_vessel_user() %}
+    <div class="row mb-4 align-items-stretch">
+        <!-- Left column: Dashboard heading + Vessel Selector -->
+        <div class="col-md-4">
+            <h2>
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </h2>
+            <p class="text-muted">Welcome, {{ user.full_name }} ({{ user.role.replace('_', ' ').title() }})</p>
+            
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-ship"></i> Select Vessel</h5>
+                    {% if vessels %}
+                        <select class="form-select" id="vesselSelector" onchange="selectVessel(this.value)">
+                            <option value="">-- Select a vessel --</option>
+                            {% for vessel in vessels %}
+                                <option value="{{ vessel.id }}"
+                                        {% if selected_vessel and vessel.id == selected_vessel.id %}selected{% endif %}>
+                                    {{ vessel.vessel_name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <script>
+                            function selectVessel(vesselId) {
+                                if (vesselId) {
+                                    window.location.href = "{{ url_for('dashboard') }}?vessel_id=" + vesselId;
+                                }
+                            }
+                            
+                            // Load vessel image on page load
+                            document.addEventListener('DOMContentLoaded', function() {
+                                const vesselSelector = document.getElementById('vesselSelector');
+                                const container = document.getElementById('vesselImageContainer');
+                                const img = document.getElementById('vesselImage');
+                                
+                                if (!vesselSelector || !container || !img) return;
+                                
+                                const vesselId = vesselSelector.value;
+                                if (vesselId) {
+                                    fetch('/api/vessel-image/' + vesselId)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (data.image_url) {
+                                                img.src = data.image_url;
+                                                container.style.display = 'flex';
+                                            }
+                                        })
+                                        .catch(() => {});
+                                }
+                            });
+                        </script>
+
+                        <p class="mt-3 mb-0 text-muted">
+                            <small>
+                                <i class="bi bi-info-circle"></i>
+                                You have access to {{ vessels|length }} vessel(s)
+                            </small>
+                        </p>
+
+                    {% else %}
+                        <div class="alert alert-warning mb-0">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            No vessels assigned to your account. Please contact your administrator.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right column: Vessel Image (full height) -->
+        <div class="col-md-8">
+            <div id="vesselImageContainer" class="d-flex align-items-center justify-content-center h-100" style="display: none;">
+                <img id="vesselImage" src="" alt="" class="img-fluid rounded shadow" style="max-height: 228px;">
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- For vessel users, show heading in its own row -->
+    <div class="row">
+        <div class="col-12">
+            <h2>
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </h2>
+            <p class="text-muted">Welcome, {{ user.full_name }} ({{ user.role.replace('_', ' ').title() }})</p>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if selected_vessel %}
+    <!-- Quick Access to Equipment -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4><i class="bi bi-grid-3x3-gap"></i> Equipment Overview</h4>
+            <p class="text-muted">Select equipment to view detailed measurements and analysis</p>
+        </div>
+
+        <!-- Main Engines -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('main_engines_multi') }}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body text-center">
+                        <img src="{{ url_for('static', filename='images/ME.gif') }}" alt="Main Engines" style="height: 100px;">
+                        <h5 class="mt-3">Main Engines</h5>
+                        <p class="text-muted small mb-1">Lubricating Oil, Scavenge Drain</p>
+                        {% if equipment_alerts.get('main_engines', 0) > 0 %}
+                        <span class="badge bg-danger">{{ equipment_alerts.get('main_engines', 0) }} alerts</span>
+                        {% else %}
+                        <span class="badge bg-success">No alerts</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Auxiliary Engines -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('aux_engines') }}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body text-center">
+                        <img src="{{ url_for('static', filename='images/AE.gif') }}" alt="Auxiliary Engines" style="height: 100px;">
+                        <h5 class="mt-3">Auxiliary Engines</h5>
+                        <p class="text-muted small mb-1">Lubricating Oil</p>
+                        {% if equipment_alerts.get('aux_engines', 0) > 0 %}
+                        <span class="badge bg-danger">{{ equipment_alerts.get('aux_engines', 0) }} alerts</span>
+                        {% else %}
+                        <span class="badge bg-success">No alerts</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Boiler -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('boiler_water_multi') }}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body text-center">
+                        <img src="{{ url_for('static', filename='images/Boiler.gif') }}" alt="Boiler" style="height: 100px;">
+                        <h5 class="mt-3">Boiler</h5>
+                        <p class="text-muted small mb-1">Phosphate, pH, Alkalinity, Conductivity</p>
+                        {% if equipment_alerts.get('boiler', 0) > 0 %}
+                        <span class="badge bg-danger">{{ equipment_alerts.get('boiler', 0) }} alerts</span>
+                        {% else %}
+                        <span class="badge bg-success">No alerts</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+
+<!-- Central Cooling System -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('central_cooling') }}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body text-center">
+                        <img src="{{ url_for('static', filename='images/cooling_water.gif') }}" alt="Central Cooling" style="height: 100px;">
+                        <h5 class="mt-3">Central Cooling System</h5>
+                        <p class="text-muted small mb-1">pH, Chloride, Nitrite</p>
+                        {% if equipment_alerts.get('cooling', 0) > 0 %}
+                        <span class="badge bg-danger">{{ equipment_alerts.get('cooling', 0) }} alerts</span>
+                        {% else %}
+                        <span class="badge bg-success">No alerts</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+        <!-- Potable Water -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('potable_water') }}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body text-center">
+                        <img src="{{ url_for('static', filename='images/potable_water.gif') }}" alt="Potable Water" style="height: 100px;">
+                        <h5 class="mt-3">Potable Water</h5>
+                        <p class="text-muted small mb-1">pH, Hardness, TDS, Metals, E. coli</p>
+                        {% if equipment_alerts.get('potable_water', 0) > 0 %}
+                        <span class="badge bg-danger">{{ equipment_alerts.get('potable_water', 0) }} alerts</span>
+                        {% else %}
+                        <span class="badge bg-success">No alerts</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Grey Water -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('treated_sewage') }}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body text-center">
+                        <img src="{{ url_for('static', filename='images/greywater.gif') }}" alt="Grey Water" style="height: 100px;">
+                        <h5 class="mt-3">Grey Water</h5>
+                        <p class="text-muted small mb-1">pH, COD, Chlorine, Turbidity</p>
+                        {% if equipment_alerts.get('grey_water', 0) > 0 %}
+                        <span class="badge bg-danger">{{ equipment_alerts.get('grey_water', 0) }} alerts</span>
+                        {% else %}
+                        <span class="badge bg-success">No alerts</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Ballast Water Treatment System -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('ballast_water') }}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body text-center">
+                        <img src="{{ url_for('static', filename='images/ballast_water.gif') }}" alt="Ballast Water" style="height: 100px;">
+                        <h5 class="mt-3">Ballast Water Treatment System</h5>
+                        <p class="text-muted small mb-1">Viable Count, Bacteria, Disinfectants</p>
+                        {% if equipment_alerts.get('ballast_water', 0) > 0 %}
+                        <span class="badge bg-danger">{{ equipment_alerts.get('ballast_water', 0) }} alerts</span>
+                        {% else %}
+                        <span class="badge bg-success">No alerts</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- EGCS -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('egcs') }}" class="text-decoration-none">
+                <div class="card h-100 hover-shadow">
+                    <div class="card-body text-center">
+                        <img src="{{ url_for('static', filename='images/egcs.gif') }}" alt="EGCS" style="height: 100px;">
+                        <h5 class="mt-3">EGCS</h5>
+                        <p class="text-muted small mb-1">Exhaust Gas Cleaning System</p>
+                        {% if equipment_alerts.get('egcs', 0) > 0 %}
+                        <span class="badge bg-danger">{{ equipment_alerts.get('egcs', 0) }} alerts</span>
+                        {% else %}
+                        <span class="badge bg-success">No alerts</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Alerts Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card" style="border-color: #dc3545;">
+                <div class="card-header" style="background-color: #dc3545; color: white;">
+                    <h5 class="mb-0 text-white"><i class="bi bi-exclamation-triangle-fill"></i> Active Alerts</h5>
+                </div>
+                <div class="card-body">
+                    {% if alerts %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Location</th>
+                                        <th>Parameter</th>
+                                        <th>Value</th>
+                                        <th>Expected Range</th>
+                                        <th>Type</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for alert in alerts[:10] %}
+                                    <tr>
+                                        <td>{{ alert.alert_date[:16] }}</td>
+                                        <td>{{ alert.sampling_point_name or 'N/A' }}</td>
+                                        <td>{{ alert.parameter_name }}</td>
+                                        <td><strong>{% if alert.measured_value|float|abs >= 99999999999 %}Out of Range{% else %}{{ alert.measured_value }}{% endif %}</strong></td>
+                                        <td>{{ alert.expected_low }} - {{ alert.expected_high }}</td>
+                                        <td>
+                                            <span class="badge
+                                                {% if alert.alert_type == 'CRITICAL' %}bg-danger
+                                                {% elif alert.alert_type == 'WARNING' %}bg-warning text-dark
+                                                {% else %}bg-info{% endif %}">
+                                                {{ alert.alert_type }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% if alerts|length > 10 %}
+                        <p class="text-muted mb-0"><small>Showing 10 of {{ alerts|length }} active alerts</small></p>
+                        {% endif %}
+                    {% else %}
+                        <p class="mb-0" style="color: #6e6e73;">
+                            <i class="bi bi-check-circle-fill" style="color: #0071e3;"></i> No active alerts - all parameters within normal ranges
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEMPORARY TROUBLESHOOTING SECTION -->
+    <div class="row mb-4 mt-5">
+        <div class="col-12">
+            <div class="card border-secondary" style="border-color: #dee2e6 !important;">
+                <div class="card-header" style="background-color: #f8f9fa; color: #6c757d; cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#troubleshootingCollapse" aria-expanded="false" aria-controls="troubleshootingCollapse">
+                    <h5 class="mb-0">
+                        <i class="bi bi-bug-fill"></i> TROUBLESHOOTING DATA (TEMPORARY)
+                        <i class="bi bi-chevron-down float-end"></i>
+                    </h5>
+                </div>
+                <div class="collapse" id="troubleshootingCollapse">
+                <div class="card-body">
+
+                    <!-- Sampling Points -->
+                    <h6 class="text-danger">Sampling Points for {{ selected_vessel.vessel_name }}</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>System Type</th>
+                                    <th>Description</th>
+                                    <th>Active</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sp in troubleshooting_sampling_points %}
+                                <tr>
+                                    <td>{{ sp.id }}</td>
+                                    <td><code>{{ sp.code }}</code></td>
+                                    <td>{{ sp.name }}</td>
+                                    <td>{{ sp.system_type or 'N/A' }}</td>
+                                    <td>{{ sp.description or 'N/A' }}</td>
+                                    <td>
+                                        {% if sp.is_active %}
+                                            <span class="badge bg-success">Yes</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">No</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- All Parameters -->
+                    <h6 class="text-danger">All Parameters in System</h6>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Symbol</th>
+                                    <th>Sampling Point</th>
+                                    <th>Ideal Low</th>
+                                    <th>Ideal High</th>
+                                    <th>Category</th>
+                                    <th>Criticality</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for param in troubleshooting_parameters %}
+                                <tr>
+                                    <td>{{ param.id }}</td>
+                                    <td>{{ param.name }}</td>
+                                    <td>{{ param.symbol or 'N/A' }}</td>
+                                    <td>{{ param.unit or 'N/A' }}</td>
+                                    <td>{{ param.ideal_low or 'N/A' }}</td>
+                                    <td>{{ param.ideal_high or 'N/A' }}</td>
+                                    <td>{{ param.category or 'N/A' }}</td>
+                                    <td>{{ param.criticality or 'N/A' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- All Measurements -->
+                    <h6 class="text-danger">Recent Measurements for {{ selected_vessel.vessel_name }} (Last 500)</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered table-striped">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Date</th>
+                                    <th>Sampling Point</th>
+                                    <th>Code</th>
+                                    <th>Parameter</th>
+                                    <th>Value</th>
+                                    <th>Numeric</th>
+                                    <th>Unit</th>
+                                    <th>Ideal Low</th>
+                                    <th>Ideal High</th>
+                                    <th>Status</th>
+                                    <th>Operator</th>
+                                    <th>Comment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for m in troubleshooting_measurements %}
+                                <tr>
+                                    <td>{{ m.id }}</td>
+                                    <td><small>{{ m.measurement_date[:16] }}</small></td>
+                                    <td>{{ m.sampling_point_name }}</td>
+                                    <td><code>{{ m.sampling_point_code }}</code></td>
+                                    <td>{{ m.parameter_name }}</td>
+                                    <td><strong>{{ m.value }}</strong></td>
+                                    <td>{{ m.value_numeric or 'N/A' }}</td>
+                                    <td>{{ m.unit or 'N/A' }}</td>
+                                    <td>{{ m.ideal_low or 'N/A' }}</td>
+                                    <td>{{ m.ideal_high or 'N/A' }}</td>
+                                    <td>
+                                        <span class="badge
+                                            {% if m.ideal_status == 'OK' %}bg-success
+                                            {% elif m.ideal_status == 'WARNING' %}bg-warning text-dark
+                                            {% elif m.ideal_status == 'CRITICAL' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ m.ideal_status or 'N/A' }}
+                                        </span>
+                                    </td>
+                                    <td>{{ m.operator_name or 'N/A' }}</td>
+                                    <td><small>{{ m.comment or '' }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="text-muted mt-3 mb-0">
+                        <small>
+                            <strong>Total:</strong>
+                            {{ troubleshooting_sampling_points|length }} sampling points,
+                            {{ troubleshooting_parameters|length }} parameters,
+                            {{ troubleshooting_measurements|length }} recent measurements shown
+                        </small>
+                    </p>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.hover-shadow {
+    transition: all 0.3s ease;
+}
+.hover-shadow:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

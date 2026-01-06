@@ -1,0 +1,44 @@
+hotwell
+	Hydrazine	100 – 300
+	DEHA	100 – 200
+	pH	8.5 – 9.5
+	Conductivity	≤ 20
+
+Aux Boiler & EGE
+	pH	10.5 – 11.5
+	Chloride	≤ 200
+	Alkalinity P	100 – 300
+	Alkalinity M	200 – 600
+	Phosphate	20 – 40
+	Conductivity	≤ 4000
+	Total Hardness	0 – 0
+
+HT & LT Cooling Water
+	pH	8.3 – 9.5
+	Chloride	≤ 50
+	Nitrite	800 – 1200
+
+potable water
+	pH	6.5 – 8.5
+	Total Alkalinity (as CaCO₃)	50 – 200
+	Turbidity	≤ 1
+	Sulphate (SO₄)	≤ 250
+	Free Chlorine	0.2 – 0.5
+	Total Chlorine	≤ 5
+	Combined Chlorine	≤ 3
+	Iron (Fe)	≤ 0.3
+	Nickel (Ni)	≤ 0.07
+	Zinc (Zn)	≤ 3
+	Copper (Cu)	≤ 2.0
+	Total Dissolved Solids (TDS)	≤ 1000
+	Total Hardness (as CaCO₃)	≤ 300
+
+sewage
+	pH	6.0 – 8.5
+	COD	≤ 125
+	BOD	≤ 25
+	Free Chlorine	≤ 0.5
+	Total Chlorine	≤ 1.0
+	Combined Chlorine	≤ 0.5
+	Turbidity	≤ 25
+	Total Suspended Solids	≤ 35

@@ -1,0 +1,830 @@
+{% extends "base.html" %}
+
+{% block title %}Central Cooling System - {{ vessel.vessel_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .date-preset {
+        font-size: 0.5rem !important;  /* Very small for sidebar fit at all widths */
+        padding: 0.25rem 0 !important;
+        height: auto !important;
+        box-sizing: border-box !important;
+        line-height: 1.1 !important;
+        white-space: nowrap !important;
+        text-align: center !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    .text-muted.d-block.mb-1 {
+        font-size: 0.7rem !important;
+    }
+    /* Grid layout for preset buttons - 2 columns, 3 rows with equal sizing */
+    .preset-btn-container {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 2px !important;
+    }
+    .preset-btn-container .btn {
+        flex: none !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        width: 100% !important;
+    }
+
+    /* Collapsible specs chevron animation */
+    .specs-chevron {
+        transition: transform 0.3s ease;
+    }
+    [data-bs-toggle="collapse"][aria-expanded="true"] .specs-chevron {
+        transform: rotate(180deg);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb and Title -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard', vessel_id=vessel.id) }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Central Cooling System</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-thermometer-snow text-info"></i> Central Cooling System Analysis</h2>
+            <p class="text-muted">{{ vessel.vessel_name }}</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Sidebar -->
+        <div class="col-md-3 col-lg-2 mb-4">
+            <!-- Cooling System Selection -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-check2-square"></i> Select Cooling System</h6>
+                    <div class="form-check">
+                        <input class="form-check-input cooling-checkbox" type="checkbox" value="HT" id="ht-check" checked>
+                        <label class="form-check-label" for="ht-check">
+                            <i class="bi bi-thermometer-snow text-danger"></i> HT Cooling Water
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input cooling-checkbox" type="checkbox" value="LT" id="lt-check" checked>
+                        <label class="form-check-label" for="lt-check">
+                            <i class="bi bi-thermometer-snow text-primary"></i> LT Cooling Water
+                        </label>
+                    </div>
+                    <hr>
+                    <button class="btn btn-sm btn-outline-primary w-100 mb-2" id="select-all">
+                        <i class="bi bi-check-all"></i> Select All
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary w-100" id="deselect-all">
+                        <i class="bi bi-x-square"></i> Deselect All
+                    </button>
+                </div>
+            </div>
+
+            <!-- Date Range Filter -->
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title text-center"><i class="bi bi-calendar-range"></i> Date Range</h6>
+                    <div class="mb-2">
+                        <small class="text-muted d-block mb-1">Quick Presets:</small>
+                        <div class="preset-btn-container w-100">
+                            <button type="button" class="btn btn-outline-primary btn-sm date-preset" data-days="30">30D</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm date-preset" data-days="90">90D</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm date-preset" data-days="180">6mo</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm date-preset" data-days="365">1yr</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm date-preset" data-days="1095">3YR</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm date-preset" data-days="all">All</button>
+                        </div>
+                    </div>
+                    <form method="GET" id="filter-form">
+                        <div class="mb-3">
+                            <label for="start_date" class="form-label"><strong>Start Date</strong></label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="end_date" class="form-label"><strong>End Date</strong></label>
+                            <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 mb-2">
+                            <i class="bi bi-funnel"></i> Apply Filter
+                        </button>
+                        <button type="button" class="btn btn-secondary w-100" onclick="window.location.href='{{ url_for('central_cooling', vessel_id=vessel.id) }}'">
+                            <i class="bi bi-x-circle"></i> Reset
+                        </button>
+                    </form>
+                    {% if cooling_data %}
+                    <div class="alert alert-info py-2 px-3 mt-3 mb-0" style="font-size: 0.875rem;">
+                        <i class="bi bi-info-circle"></i> <strong>Data Available</strong><br>
+                        <small>Showing filtered results</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-6 col-lg-7">
+            <div class="card">
+                <div class="card-body">
+                    {% if cooling_data %}
+                        <div id="cooling-charts"></div>
+                    {% else %}
+                        <div class="alert alert-info mb-0">
+                            <i class="bi bi-info-circle"></i> No central cooling system data available for the selected date range.
+                        </div>
+                    {% endif %}
+                <!-- All Measurements Table - Full Width -->
+            <div class="card mt-3">
+                <div class="card-header" style="background-color: #0d6efd; color: white;">
+                    <h5 class="mb-0 text-white"><i class="bi bi-table"></i> All Measurements</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if cooling_data %}
+                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table table-sm table-striped table-hover mb-0">
+                            <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Sampling Point</th>
+                                    <th>Parameter</th>
+                                    <th>Value</th>
+                                    <th>Unit</th>
+                                    <th>Range</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="measurements-table-body">
+                                <!-- Populated by JavaScript with dynamic alerts -->
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="p-3 mb-0 text-muted">No measurement data available</p>
+                    {% endif %}
+                </div>
+            </div>
+            </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar -->
+        <div class="col-md-3 col-lg-3 mb-4">
+            <!-- Vessel Selector (hidden for vessel users) -->
+            {% if not current_user.is_vessel_user() %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-ship"></i> Select Vessel</h6>
+                    <select class="form-select" id="vessel-selector">
+                        {% for v in vessels %}
+                        <option value="{{ v.id }}" {% if v.id == vessel.id %}selected{% endif %}>
+                            {{ v.vessel_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-muted small mt-2 mb-0">{{ vessel.vessel_id }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+
+            <!-- PDF Download Button -->
+            <div class="card mb-3">
+                <div class="card-body text-center">
+                    <button type="button" class="btn btn-success w-100" id="download-pdf-btn" onclick="downloadPagePDF()">
+                        <i class="bi bi-file-earmark-pdf"></i> Download PDF
+                    </button>
+                    <small class="text-muted d-block mt-2">Generate report for current view</small>
+                </div>
+            </div>
+            <!-- Vessel Equipment Specifications -->
+            {% if vessel_specs %}
+            <div class="card mb-3">
+                <div class="card-header" style="background-color: #6c757d; color: white; cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#specsCollapse" aria-expanded="false" aria-controls="specsCollapse">
+                    <h6 class="mb-0 d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-info-circle-fill"></i> Equipment Specifications</span>
+                        <i class="bi bi-chevron-down specs-chevron"></i>
+                    </h6>
+                </div>
+                <div class="collapse" id="specsCollapse">
+                <div class="card-body">
+                    {% for category, fields in vessel_specs.items() %}
+                        {% if category != 'vessel_info' %}
+                            {% for field_name, field_value in fields.items() %}
+                                <div class="mb-2">
+                                    <small class="text-muted d-block">{{ field_name }}</small>
+                                    <strong class="small">{{ field_value }}</strong>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Cooling System Alerts -->
+            <div class="card border-danger">
+                <div class="card-header" style="background-color: #dc3545; color: white;">
+                    <h6 class="mb-0 text-white"><i class="bi bi-exclamation-triangle-fill"></i> Cooling System Alerts</h6>
+                </div>
+                <div class="card-body">
+                    {% if alerts %}
+                        <div class="list-group list-group-flush">
+                            {% for alert in alerts[:5] %}
+                            <div class="list-group-item px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="small">
+                                        <strong>{{ alert.sampling_point_name or 'N/A' }}</strong><br>
+                                        <span class="text-muted">{{ alert.parameter_name }}</span><br>
+                                        <span class="badge bg-danger">{{ alert.measured_value }}</span>
+                                        <small class="text-muted">{{ alert.alert_date[:10] }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="mb-0" style="color: #6e6e73;">
+                            <i class="bi bi-check-circle-fill" style="color: #0071e3;"></i> No active alerts
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Plotly.js for charts -->
+<script src="{{ url_for('static', filename='js/plotly-2.27.0.min.js') }}"></script>
+<script>
+// Out of Range helper functions
+function formatMeasurementValue(value) {
+    const numValue = parseFloat(value);
+    if (numValue >= 99999999999 || numValue <= -99999999999) {
+        return "Out of Range";
+    }
+    return value;
+}
+function isOutOfRange(value) {
+    const numValue = parseFloat(value);
+    return numValue >= 99999999999 || numValue <= -99999999999;
+}
+
+// Vessel selector - reload page when vessel changes
+const vesselSelector = document.getElementById('vessel-selector');
+if (vesselSelector) {
+    vesselSelector.addEventListener('change', function() {
+        const newVesselId = this.value;
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('vessel_id', newVesselId);
+        window.location.href = currentUrl.toString();
+    });
+}
+
+// Color palette for cooling systems
+const COOLING_COLORS = {
+    'HT': '#dc3545',  // Red (High Temperature)
+    'LT': '#0d6efd'   // Blue (Low Temperature)
+};
+
+// Parameter limits from Flask
+const limitsData = {{ limits | tojson | safe }};
+
+// Normalize parameter names for limit lookup
+function normalizeParameterName(paramName) {
+    let normalized = paramName.toUpperCase();
+
+    // Strip common suffixes and prefixes from LabCom test kit names
+    // Order matters: more specific patterns before general ones
+    normalized = normalized
+        .replace(/\s*\(HR LIQ\)/gi, '')        // (HR liq) - High Range liquid (before general liq)
+        .replace(/\s*\(HR TAB\)\.?\s*/gi, ' ') // (HR tab) or (HR tab). - High Range tablet
+        .replace(/\s*\(LIQ\)/gi, '')           // (liq) - Liquid test strip
+        .replace(/\s*\(EL\.\)/gi, '')          // (el.) - Electronic meter
+        .replace(/\.?\s*ORTHO\s*$/gi, '')      // . ortho or ortho - Orthophosphate (optional dot)
+        .replace(/^PH-UNIVERSAL/gi, 'PH')      // pH-Universal → pH
+        .replace(/^PH\s*\([^)]+\)/gi, 'PH')    // pH (pHPCATC) or pH (anything) → PH
+        .replace(/\s+/g, ' ')                  // Collapse multiple spaces
+        .trim();
+
+    return normalized;
+}
+// Shorten parameter names for display
+function shortenParamName(name) {
+    return name
+        .replace(/\s*\(HR [Ll]iq\)/gi, '')       // Remove (HR liq)
+        .replace(/\s*\([Ll]iq\)/gi, '')          // Remove (Liq)
+        .replace(/\s*\(pHPCATC\)/gi, '')         // Remove (pHPCATC)
+        .replace(/\s*\([^)]+\)/gi, '')           // Remove any remaining parentheses
+        .trim();
+}
+
+
+
+// Convert date from YYYY-MM-DD or full timestamp to dd-mm-yy format
+function formatDateForHover(dateStr) {
+    // Extract date portion if it's a full timestamp
+    const datePart = dateStr.split(' ')[0];
+    const parts = datePart.split('-');
+    if (parts.length === 3) {
+        const year = parts[0].slice(-2); // Get last 2 digits of year
+        const month = parts[1];
+        const day = parts[2];
+        return `${day}-${month}-${year}`;
+    }
+    return dateStr;
+}
+
+// Cooling system selection management
+const coolingCheckboxes = document.querySelectorAll('.cooling-checkbox');
+const selectAllBtn = document.getElementById('select-all');
+const deselectAllBtn = document.getElementById('deselect-all');
+
+selectAllBtn.addEventListener('click', () => {
+    coolingCheckboxes.forEach(cb => cb.checked = true);
+    updateCharts();
+    renderMeasurementsTable();
+});
+
+deselectAllBtn.addEventListener('click', () => {
+    coolingCheckboxes.forEach(cb => cb.checked = false);
+    updateCharts();
+    renderMeasurementsTable();
+});
+
+coolingCheckboxes.forEach(cb => {
+    cb.addEventListener('change', () => {
+        updateCharts();
+        renderMeasurementsTable();
+    });
+});
+
+function getSelectedCoolingSystems() {
+    return Array.from(coolingCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+}
+
+// All data from backend
+const allCoolingData = {{ cooling_data | tojson }};
+
+function updateCharts() {
+    const selectedSystems = getSelectedCoolingSystems();
+    const chartsContainer = document.getElementById('cooling-charts');
+    chartsContainer.innerHTML = '';
+
+    // Filter data by selected cooling systems
+    const filteredData = allCoolingData.filter(m => selectedSystems.includes(m.cooling_id));
+
+    // Organize data by parameter
+    const dataByParam = {};
+    filteredData.forEach(m => {
+        if (!dataByParam[m.parameter_name]) {
+            dataByParam[m.parameter_name] = { unit: m.unit || '', systems: {} };
+        }
+        if (!dataByParam[m.parameter_name].systems[m.cooling_id]) {
+            dataByParam[m.parameter_name].systems[m.cooling_id] = [];
+        }
+        dataByParam[m.parameter_name].systems[m.cooling_id].push(m);
+    });
+
+    // Create a chart for each parameter
+    Object.keys(dataByParam).sort().forEach(paramName => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'position-relative';
+        wrapper.style.marginBottom = '30px';
+
+        // Create heading like boiler page
+        const heading = document.createElement('h5');
+        heading.className = 'text-primary mb-2 text-center';
+        heading.textContent = shortenParamName(paramName);
+        wrapper.appendChild(heading);
+
+        const chartId = `cooling-chart-${paramName.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`;
+
+        const expandBtn = document.createElement('button');
+        expandBtn.className = 'btn btn-sm btn-outline-secondary position-absolute';
+        expandBtn.style.cssText = 'top:5px; right:5px; z-index:10;';
+        expandBtn.title = 'Expand chart';
+        expandBtn.innerHTML = '<i class="bi bi-arrows-fullscreen"></i>';
+        expandBtn.onclick = function() { expandChart(chartId, paramName); };
+
+        const div = document.createElement('div');
+        div.id = chartId;
+
+        wrapper.appendChild(expandBtn);
+        wrapper.appendChild(div);
+        chartsContainer.appendChild(wrapper);
+
+        const paramInfo = dataByParam[paramName];
+        const traces = [];
+        const shapes = [];
+        let allDates = [];
+
+        selectedSystems.forEach(systemId => {
+            if (paramInfo.systems[systemId]) {
+                const data = paramInfo.systems[systemId];
+                traces.push({
+                    x: data.map(m => normalizeDate(m.measurement_date)),
+                    y: data.map(m => isOutOfRange(m.value) ? null : parseFloat(m.value)),
+                    mode: 'lines+markers',
+                    name: systemId + ' Cooling Water',
+                    line: { color: COOLING_COLORS[systemId], width: 2 },
+                    marker: { size: 6 },
+                    hovertemplate: `${systemId} Cooling Water<br>Date: %{customdata}<br>Value: %{y}<extra></extra>`,
+                    customdata: data.map(m => formatDateForHover(m.measurement_date))
+                });
+                allDates = allDates.concat(data.map(m => new Date(normalizeDate(m.measurement_date))));
+            }
+        });
+
+        // Get limits for this parameter from users.sqlite
+        const normalizedParamName = normalizeParameterName(paramName);
+        const limits = limitsData?.[normalizedParamName];
+
+        if (limits) {
+            // Add lower limit line
+            shapes.push({
+                type: 'line',
+                xref: 'paper',
+                x0: 0,
+                x1: 1,
+                y0: limits.lower_limit,
+                y1: limits.lower_limit,
+                line: {
+                    color: '#ffc107',  // Orange color
+                    width: 2,
+                    dash: 'solid'
+                }
+            });
+
+            // Add upper limit line
+            shapes.push({
+                type: 'line',
+                xref: 'paper',
+                x0: 0,
+                x1: 1,
+                y0: limits.upper_limit,
+                y1: limits.upper_limit,
+                line: {
+                    color: '#ffc107',  // Orange color
+                    width: 2,
+                    dash: 'solid'
+                }
+            });
+        }
+
+        // Calculate date range with 10% padding
+        let minDate = new Date(Math.min(...allDates));
+        let maxDate = new Date(Math.max(...allDates));
+
+        // Add 10% padding on both sides
+        const dateRange = maxDate.getTime() - minDate.getTime();
+        const padding = dateRange * 0.10;
+        minDate = new Date(minDate.getTime() - padding);
+        maxDate = new Date(maxDate.getTime() + padding);
+
+        // Handle single date case
+        if (dateRange === 0) {
+            minDate = new Date(minDate.getTime() - 86400000);
+            maxDate = new Date(maxDate.getTime() + 86400000);
+        }
+
+        // Format last test date
+        let lastTestDate = new Date(Math.max(...allDates.filter(d => !isNaN(d))));
+        let lastTestDateStr = lastTestDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+        // Get unique dates for x-axis ticks to avoid overcrowding
+        // Normalize datetime to date-only string (YYYY-MM-DD)
+function normalizeDate(dateStr) {
+    if (!dateStr) return dateStr;
+    // Handle both "YYYY-MM-DD HH:MM:SS" and ISO formats
+    return dateStr.split(' ')[0].split('T')[0];
+}
+
+// Adaptive tick configuration based on date range span
+function getAdaptiveTickConfig(uniqueDates, minDate, maxDate) {
+    const dateCount = uniqueDates.length;
+    const daySpan = (new Date(maxDate) - new Date(minDate)) / (1000 * 60 * 60 * 24);
+
+    let tickvals, ticktext;
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // Single day - show date without tick marks
+    if (dateCount <= 1) {
+        const d = uniqueDates[0] || new Date();
+        return {
+            tickvals: [d.toISOString().split('T')[0]],
+            ticktext: [`${monthNames[d.getMonth()]} ${d.getDate()}`],
+            ticklen: 0
+        };
+    }
+
+    if (dateCount <= 10) {
+        // Show all dates if 10 or fewer
+        tickvals = uniqueDates.map(d => d.toISOString().split('T')[0]);
+        ticktext = uniqueDates.map(d => `${monthNames[d.getMonth()]} ${d.getDate()}`);
+    } else if (daySpan <= 31) {
+        // ~1 month: show ~7 evenly spaced ticks
+        tickvals = [];
+        ticktext = [];
+        const step = Math.ceil(dateCount / 7);
+        for (let i = 0; i < uniqueDates.length; i += step) {
+            const d = uniqueDates[i];
+            tickvals.push(d.toISOString().split('T')[0]);
+            ticktext.push(`${monthNames[d.getMonth()]} ${d.getDate()}`);
+        }
+    } else if (daySpan <= 180) {
+        // 1-6 months: show monthly ticks
+        tickvals = [];
+        ticktext = [];
+        let lastMonth = -1;
+        uniqueDates.forEach(d => {
+            if (d.getMonth() !== lastMonth) {
+                tickvals.push(d.toISOString().split('T')[0]);
+                ticktext.push(`${monthNames[d.getMonth()]} ${d.getDate()}`);
+                lastMonth = d.getMonth();
+            }
+        });
+    } else {
+        // > 6 months: show monthly ticks with year
+        tickvals = [];
+        ticktext = [];
+        let lastMonth = -1;
+        uniqueDates.forEach(d => {
+            if (d.getMonth() !== lastMonth) {
+                tickvals.push(d.toISOString().split('T')[0]);
+                ticktext.push(`${monthNames[d.getMonth()]} '${d.getFullYear().toString().slice(-2)}`);
+                lastMonth = d.getMonth();
+            }
+        });
+    }
+
+    return { tickvals, ticktext };
+}
+
+const uniqueDatesSet = new Set();
+        allDates.forEach(d => {
+            const dateOnly = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            uniqueDatesSet.add(dateOnly.getTime());
+        });
+
+        const uniqueDates = Array.from(uniqueDatesSet)
+            .map(timestamp => new Date(timestamp))
+            .sort((a, b) => a - b);
+
+        // Get adaptive tick configuration
+        const { tickvals, ticktext, ticklen } = getAdaptiveTickConfig(uniqueDates, minDate, maxDate);
+
+        // Calculate Y-axis range to ensure limit lines are always visible
+        let yMin = null;
+        let yMax = null;
+
+        // Get min/max from data
+        traces.forEach(trace => {
+            const values = trace.y.filter(v => v != null && !isNaN(v));
+            if (values.length > 0) {
+                const traceMin = Math.min(...values);
+                const traceMax = Math.max(...values);
+                yMin = yMin === null ? traceMin : Math.min(yMin, traceMin);
+                yMax = yMax === null ? traceMax : Math.max(yMax, traceMax);
+            }
+        });
+
+        // Include limits in the range if they exist
+        if (limits) {
+            yMin = yMin === null ? limits.lower_limit : Math.min(yMin, limits.lower_limit);
+            yMax = yMax === null ? limits.upper_limit : Math.max(yMax, limits.upper_limit);
+        }
+
+        // Add 10% padding to Y-axis range
+        if (yMin !== null && yMax !== null) {
+            const yRange = yMax - yMin;
+            const yPadding = yRange * 0.10;
+            yMin = yMin - yPadding;
+            yMax = yMax + yPadding;
+        }
+
+        // Build title text with last test date and limits
+        let titleText = `Last Test Date: ${lastTestDateStr}`;
+        if (limits) {
+            titleText += ` | Limits: ${limits.lower_limit} - ${limits.upper_limit}`;
+        }
+
+        const layout = {
+            title: {
+                text: titleText,
+                font: { size: 14, color: '#6c757d' }
+            },
+            xaxis: {
+                title: 'Date',
+                tickmode: 'array',
+                tickvals: tickvals,
+                ticktext: ticktext,
+                ticklen: ticklen !== undefined ? ticklen : 5,
+                tickangle: -45,
+                range: [minDate, maxDate],
+                showgrid: false,
+                showline: true,
+                linewidth: 1,
+                linecolor: '#888',
+                mirror: false,
+                zeroline: false
+            },
+            yaxis: {
+                    automargin: true,
+                title: `${paramName} (${paramInfo.unit})`,
+                range: yMin !== null && yMax !== null ? [yMin, yMax] : undefined,
+                showgrid: false,
+                showline: true,
+                linewidth: 1,
+                linecolor: '#888',
+                mirror: false,
+                zeroline: false
+            },
+            shapes: shapes,
+            hovermode: 'closest',
+            plot_bgcolor: '#f8f9fa',
+            paper_bgcolor: '#f8f9fa'
+        };
+
+        Plotly.newPlot(div, traces, layout, { responsive: true, displayModeBar: false });
+
+
+    });
+}
+
+// Date preset buttons functionality
+document.querySelectorAll('.date-preset').forEach(button => {
+    button.addEventListener('click', function() {
+        const days = this.getAttribute('data-days');
+        const endDate = new Date();
+        let startDate;
+
+        if (days === 'all') {
+            // Default to 3 years for "All" if no specific data range available
+            startDate = new Date();
+            startDate.setFullYear(startDate.getFullYear() - 3);
+        } else {
+            startDate = new Date();
+            startDate.setDate(startDate.getDate() - parseInt(days));
+        }
+
+        // Format dates as YYYY-MM-DD for input fields
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        // Set the date input values
+        document.getElementById('start_date').value = formatDate(startDate);
+        document.getElementById('end_date').value = formatDate(endDate);
+
+        // Highlight active button
+        document.querySelectorAll('.date-preset').forEach(btn => btn.classList.remove('active'));
+        this.classList.add('active');
+
+        // Submit the form
+        document.getElementById('filter-form').submit();
+    });
+});
+
+// Render the measurements table with dynamic alerts from users.sqlite
+function renderMeasurementsTable() {
+    const tableBody = document.getElementById('measurements-table-body');
+    if (!tableBody || !allCoolingData) return;
+
+    const selectedSystems = getSelectedCoolingSystems();
+    tableBody.innerHTML = '';
+
+    // Filter by selected cooling systems
+    let filteredData = allCoolingData.filter(m => selectedSystems.includes(m.cooling_id));
+
+    // Sort by date (newest first)
+    filteredData.sort((a, b) => new Date(b.measurement_date) - new Date(a.measurement_date));
+
+    filteredData.forEach(m => {
+        const row = document.createElement('tr');
+        const dateOnly = m.measurement_date.split(' ')[0];
+
+        // Get limits from users.sqlite via limitsData
+        const normalizedParam = normalizeParameterName(m.parameter_name);
+        const paramLimits = limitsData[normalizedParam];
+
+        // Determine status and range from database limits
+        let statusBadge = '<span class="badge bg-secondary" style="font-size:0.6rem;">N/A</span>';
+        let idealRange = '-';
+        let valueClass = '';
+        let rowClass = '';
+
+        if (paramLimits && m.value_numeric !== null) {
+            const value = parseFloat(m.value_numeric);
+            const lowerLimit = parseFloat(paramLimits.lower_limit);
+            const upperLimit = parseFloat(paramLimits.upper_limit);
+
+            idealRange = `${lowerLimit}-${upperLimit}`;
+
+            if (isOutOfRange(m.value_numeric)) {
+                    statusBadge = '<span class="badge bg-warning text-dark" style="font-size:0.6rem;">OOR</span>';
+                    valueClass = 'text-muted fst-italic';
+                } else if (!isNaN(value) && !isNaN(lowerLimit) && !isNaN(upperLimit)) {
+                if (value >= lowerLimit && value <= upperLimit) {
+                    statusBadge = '<span class="badge bg-success" style="font-size:0.6rem;">OK</span>';
+                } else {
+                    statusBadge = '<span class="badge bg-danger" style="font-size:0.6rem;">ALERT</span>';
+                    valueClass = 'text-danger fw-bold';
+                    rowClass = 'table-warning';
+                }
+            }
+        }
+
+        // Color code the system
+        const sysColor = COOLING_COLORS[m.cooling_id] || '#6c757d';
+        const sysBadge = `<span style="color: ${sysColor}; font-weight: bold;">${m.cooling_id}</span>`;
+
+        // Format value
+        const valueDisplay = m.value_numeric !== null ? (isOutOfRange(m.value_numeric) ? 'Out of Range' : parseFloat(m.value_numeric).toFixed(1)) : '-';
+
+        // Truncate parameter name
+        const paramDisplay = shortenParamName(m.parameter_name);
+
+        row.className = rowClass;
+        row.innerHTML = `
+            <td>${dateOnly.slice(5)}</td>
+            <td>${sysBadge}</td>
+            <td title="${m.parameter_name}">${paramDisplay}</td>
+            <td class="${valueClass}">${valueDisplay}</td>
+            <td>${m.unit || "-"}</td>
+            <td style="font-size:0.65rem;">${idealRange}</td>
+            <td>${statusBadge}</td>
+        `;
+
+        tableBody.appendChild(row);
+    });
+}
+
+// Initialize on page load
+{% if cooling_data %}
+updateCharts();
+renderMeasurementsTable();
+{% endif %}
+
+// Download PDF for current page view
+function downloadPagePDF() {
+    const btn = document.getElementById("download-pdf-btn");
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Generating...';
+    btn.disabled = true;
+    
+    // Get selected systems
+    const selectedSystems = [];
+    document.querySelectorAll("input[type=checkbox]:checked").forEach(cb => {
+        const label = cb.nextElementSibling ? cb.nextElementSibling.textContent.trim() : "";
+        if (label.includes("HT")) selectedSystems.push("HT");
+        if (label.includes("LT")) selectedSystems.push("LT");
+    });
+    
+    const startDate = document.getElementById("start_date").value;
+    const endDate = document.getElementById("end_date").value;
+    
+    let url = "/api/reports/central-cooling-pdf?vessel_id={{ vessel.id }}";
+    url += "&start_date=" + startDate + "&end_date=" + endDate;
+    selectedSystems.forEach(s => url += "&systems=" + s);
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) throw new Error("PDF generation failed");
+            return response.blob();
+        })
+        .then(blob => {
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = "{{ vessel.vessel_name }}_CentralCooling_" + startDate + "_" + endDate + ".pdf";
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            a.remove();
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            alert("Failed to generate PDF. Please try again.");
+        })
+        .finally(() => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        });
+}
+</script>
+{% endblock %}

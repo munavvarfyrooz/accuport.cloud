@@ -1,0 +1,18 @@
+[Unit]
+Description=Accuport Dashboard - Marine Chemical Test Solutions
+After=network.target
+
+[Service]
+Type=simple
+User=DEPLOY_USER
+Group=DEPLOY_USER
+WorkingDirectory=INSTALL_PATH/dashbored
+Environment="PATH=INSTALL_PATH/venv/bin"
+ExecStart=INSTALL_PATH/venv/bin/python app.py
+Restart=always
+RestartSec=10
+StandardOutput=append:INSTALL_PATH/dashbored/app.log
+StandardError=append:INSTALL_PATH/dashbored/app.log
+
+[Install]
+WantedBy=multi-user.target

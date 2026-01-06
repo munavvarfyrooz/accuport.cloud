@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="description" content="{% block meta_description %}Accuport.cloud - Professional marine onboard chemical test solutions dashboard for vessel and fleet managers. Track and analyze boiler water, engine oil, and water treatment parameters.{% endblock %}">
+    <title>{% block title %}Accuport Dashboard{% endblock %}</title>
+
+    <!-- DNS prefetch and preconnect for CDN -->
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Nunito Sans Font for Lux Theme -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@200;300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Preload critical font files for instant icon rendering -->
+    <link rel="preload" href="{{ url_for('static', filename='fonts/bootstrap-icons.woff2') }}" as="font" type="font/woff2" crossorigin>
+
+    <!-- Bootstrap 5 CSS - Cerulean Theme -->
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}?v=cerulean_20251216" rel="stylesheet">
+
+    <!-- Bootstrap Icons - Local with font-display swap -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.min.css') }}">
+
+    <!-- Custom themes disabled for Lux testing -->
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}"> -->
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='css/modern-theme.css') }}?v=20251124b"> -->
+
+    <style>
+        /* Ensure navbar brand text is not transformed to uppercase */
+        .navbar-brand {
+            text-transform: none !important;
+        }
+
+        /* Navbar minilogo styling */
+        .navbar-brand img {
+            height: 30px;
+            width: auto;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        /* Sync modal error message wrapping */
+        #syncAllResultsBody td {
+            word-wrap: break-word;
+            word-break: break-word;
+            max-width: 400px;
+            white-space: normal;
+        }
+        #syncAllResultsBody td:first-child {
+            max-width: 150px;
+        }
+        #syncAllResultsBody td:nth-child(2) {
+            max-width: 80px;
+            text-align: center;
+        }
+        #syncAllResultsBody td:nth-child(3) {
+            max-width: 400px;
+        }
+        .modal-dialog {
+            max-width: 800px;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('dashboard', vessel_id=session.get('selected_vessel_id')) }}">
+                <img src="{{ url_for('static', filename='img/minilogo.png') }}" alt="AccuPort Logo"> Accu-Port Cloud
+            </a>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('dashboard', vessel_id=session.get('selected_vessel_id')) }}">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                    </li>
+
+                    {% if current_user.is_admin() or current_user.is_fleet_manager() %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-shield-lock"></i> Management
+                        </a>
+                        <ul class="dropdown-menu">
+                            {% if current_user.is_admin() %}
+                            <li><a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
+                                <i class="bi bi-shield-lock"></i> Admin Dashboard
+                            </a></li>
+                            {% endif %}
+                            {% if current_user.is_admin() or current_user.is_fleet_manager() %}
+                            <li><a class="dropdown-item" href="{{ url_for('fleet_manager_dashboard') }}">
+                                <i class="bi bi-diagram-3"></i> Fleet Manager
+                            </a></li>
+                            {% endif %}
+                        </ul>
+                    </li>
+                    {% endif %}
+
+                    {% if session.get('selected_vessel_id') %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-gear"></i> Equipment
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('boiler_water_multi', vessel_id=session.get('selected_vessel_id')) }}"><i class="bi bi-droplet-fill text-primary"></i> Boiler Water</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('main_engines_multi', vessel_id=session.get('selected_vessel_id')) }}"><i class="bi bi-gear-fill text-primary"></i> Main Engines</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('aux_engines', vessel_id=session.get('selected_vessel_id')) }}"><i class="bi bi-gear text-success"></i> Auxiliary Engines</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('potable_water', vessel_id=session.get('selected_vessel_id')) }}">Potable Water</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('treated_sewage', vessel_id=session.get('selected_vessel_id')) }}">Treated Sewage</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('ballast_water', vessel_id=session.get('selected_vessel_id')) }}">Ballast Water</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('egcs', vessel_id=session.get('selected_vessel_id')) }}"><i class="bi bi-cloud"></i> EGCS</a></li>
+                        </ul>
+                    </li>
+                    {% endif %}
+                </ul>
+
+                <ul class="navbar-nav">
+                    {% if session.get("selected_vessel_id") %}
+                    <li class="nav-item me-2">
+                        <button id="syncButton" class="btn btn-outline-sync-primary" onclick="syncData()">
+                            <i class="bi bi-arrow-repeat"></i> Sync
+                        </button>
+                        <button id="syncAllButton" class="btn btn-outline-sync-primary ms-2" onclick="syncAllData()">
+                            <i class="bi bi-cloud-arrow-up"></i> Sync All
+                        </button>
+                    </li>
+                    <li class="nav-item me-2">
+                        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#reportModal">
+                            <i class="bi bi-file-earmark-pdf"></i> Report
+                        </button>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> {{ current_user.full_name }}
+                            <span class="badge bg-secondary">{{ current_user.role.replace('_', ' ').title() }}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">
+                                <i class="bi bi-box-arrow-right"></i> Logout
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-light text-center text-muted py-3 mt-5">
+        <div class="container">
+            <small>&copy; 2025 Accuport.cloud - Marine Onboard Chemical Test Solutions &nbsp;&bull;&nbsp; v{{ app_version }}</small>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS - Deferred for better performance -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" defer></script>
+
+    {% block extra_scripts %}{% endblock %}
+<script>
+    async function syncData() {
+        const btn = document.getElementById('syncButton');
+        if (!btn) return;
+        const originalHTML = btn.innerHTML;
+        
+        // Disable button and show spinner
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Syncing...';
+        
+        try {
+            const response = await fetch('/sync_vessel_data', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Show success
+                btn.classList.remove('btn-outline-light');
+                btn.classList.add('btn-success');
+                btn.innerHTML = '<i class="bi bi-check-lg"></i> Done';
+                
+                // Reload page
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                alert('Sync failed: ' + data.message);
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred during sync.');
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        }
+    }
+</script>
+
+<!-- Sync Results Modal -->
+<div class="modal fade" id="syncResultsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Sync All Vessels</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="syncAllProgress" class="text-center py-4">
+             <div class="spinner-border text-primary" role="status"></div>
+             <p class="mt-2">Syncing all vessels... This may take a moment.</p>
+        </div>
+        <div id="syncAllResults" style="display:none;">
+            <div class="alert alert-info">
+                <strong>Status:</strong> <span id="syncAllStatusText">Completed</span>
+            </div>
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Vessel</th>
+                        <th>Status</th>
+                        <th>Message</th>
+                    </tr>
+                </thead>
+                <tbody id="syncAllResultsBody">
+                </tbody>
+            </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="window.location.reload()">Close & Reload</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function syncAllData() {
+    const modal = new bootstrap.Modal(document.getElementById('syncResultsModal'));
+    const progressDiv = document.getElementById('syncAllProgress');
+    const resultsDiv = document.getElementById('syncAllResults');
+    const tbody = document.getElementById('syncAllResultsBody');
+    
+    // Reset UI
+    progressDiv.style.display = 'block';
+    resultsDiv.style.display = 'none';
+    tbody.innerHTML = '';
+    modal.show();
+    
+    try {
+        const response = await fetch('/sync_all_vessels', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            }
+        });
+        
+        const data = await response.json();
+        
+        // Hide progress, show results
+        progressDiv.style.display = 'none';
+        resultsDiv.style.display = 'block';
+        
+        if (response.ok && data.success) {
+            document.getElementById('syncAllStatusText').textContent = `Synced ${data.success_count} / ${data.total} vessels successfully.`;
+            
+            data.results.forEach(res => {
+                const row = document.createElement('tr');
+                const statusIcon = res.success ? '<span class="badge bg-success">Success</span>' : '<span class="badge bg-danger">Failed</span>';
+                row.innerHTML = `
+                    <td>${res.vessel_name}</td>
+                    <td>${statusIcon}</td>
+                    <td class="small text-muted">${res.message}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        } else {
+            document.getElementById('syncAllStatusText').textContent = 'Error: ' + (data.message || 'Unknown error');
+            document.getElementById('syncAllStatusText').className = 'text-danger';
+        }
+        
+    } catch (error) {
+        console.error('Error:', error);
+        progressDiv.style.display = 'none';
+        resultsDiv.style.display = 'block';
+        document.getElementById('syncAllStatusText').textContent = 'Critical Network Error';
+    }
+}
+</script>
+
+<!-- Fullscreen Chart Modal -->
+<div class="modal fade" id="chartModal" tabindex="-1">
+  <div class="modal-dialog" style="width: 100vw; max-width: 100vw; height: 100vh; margin: 0;">
+    <div class="modal-content" style="height: 100vh; border: 0; border-radius: 0;">
+      <div class="modal-header py-2" style="border-radius: 0;">
+        <h5 class="modal-title" id="chartModalTitle">Chart</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-3" style="height: calc(100vh - 56px); overflow: hidden;">
+        <div id="chartModalContent" style="width: 100%; height: 100%;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Function to expand chart to fullscreen modal
+function expandChart(sourceDiv, title) {
+    const source = document.getElementById(sourceDiv);
+    if (!source || !source.data) {
+        console.error('Chart not found or not initialized:', sourceDiv);
+        return;
+    }
+
+    const data = source.data;
+    const layout = JSON.parse(JSON.stringify(source.layout));
+
+    document.getElementById('chartModalTitle').textContent = title || 'Chart';
+
+    const modal = new bootstrap.Modal(document.getElementById('chartModal'));
+    modal.show();
+
+    // Render chart after modal is shown (to get correct dimensions)
+    document.getElementById('chartModal').addEventListener('shown.bs.modal', function handler() {
+        const modalBody = document.querySelector('#chartModal .modal-body');
+        const chartContainer = document.getElementById('chartModalContent');
+
+        // Adjust layout for fullscreen - use modal body dimensions
+        layout.autosize = false;
+        layout.width = modalBody.clientWidth - 20;
+        layout.height = modalBody.clientHeight - 20;
+        layout.margin = { t: 50, r: 50, b: 80, l: 80 };
+
+        Plotly.newPlot(chartContainer, data, layout, { responsive: true, displayModeBar: false });
+        this.removeEventListener('shown.bs.modal', handler);
+    });
+}
+
+// Clean up chart when modal is closed
+document.addEventListener('DOMContentLoaded', function() {
+    const chartModal = document.getElementById('chartModal');
+    if (chartModal) {
+        chartModal.addEventListener('hidden.bs.modal', function() {
+            Plotly.purge('chartModalContent');
+        });
+    }
+});
+</script>
+
+
+    <!-- Report Generation Modal -->
+    <!-- Report Generation Modal -->
+    <div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="reportModalLabel">
+                        <i class="bi bi-file-earmark-pdf"></i> Generate PDF Report
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="report-form">
+                        <!-- Vessel Selector -->
+                        <div class="mb-3">
+                            <label for="report-vessel" class="form-label fw-bold">Vessel</label>
+                            <select class="form-select" id="report-vessel" required>
+                                {% if vessels %}
+                                    {% for vessel in vessels %}
+                                    <option value="{{ vessel.id }}" {% if session.get('selected_vessel_id') == vessel.id %}selected{% endif %}>
+                                        {{ vessel.vessel_name }}
+                                    </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        
+                        <!-- Date Range Presets -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Date Range</label>
+                            <div class="btn-group w-100 mb-2" role="group">
+                                <button type="button" class="btn btn-outline-primary report-date-preset" data-days="7">7 Days</button>
+                                <button type="button" class="btn btn-outline-primary report-date-preset active" data-days="30">30 Days</button>
+                                <button type="button" class="btn btn-outline-primary report-date-preset" data-days="90">90 Days</button>
+                                <button type="button" class="btn btn-outline-primary report-date-preset" data-days="365">1 Year</button>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <label for="report-start-date" class="form-label small text-muted">Start Date</label>
+                                    <input type="date" class="form-control" id="report-start-date" required>
+                                </div>
+                                <div class="col-6">
+                                    <label for="report-end-date" class="form-label small text-muted">End Date</label>
+                                    <input type="date" class="form-control" id="report-end-date" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Section Selection -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Include Sections</label>
+                            <div class="form-check">
+                                <input class="form-check-input section-check" type="checkbox" value="boiler" id="section-boiler" checked>
+                                <label class="form-check-label" for="section-boiler">
+                                    <i class="bi bi-droplet-fill text-primary"></i> Boiler Water
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input section-check" type="checkbox" value="main_engines" id="section-me" checked>
+                                <label class="form-check-label" for="section-me">
+                                    <i class="bi bi-gear-fill text-primary"></i> Main Engines
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input section-check" type="checkbox" value="aux_engines" id="section-ae" checked>
+                                <label class="form-check-label" for="section-ae">
+                                    <i class="bi bi-gear text-success"></i> Auxiliary Engines
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input section-check" type="checkbox" value="potable_water" id="section-pw">
+                                <label class="form-check-label" for="section-pw">
+                                    <i class="bi bi-cup-straw"></i> Potable Water
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input section-check" type="checkbox" value="treated_sewage" id="section-sw">
+                                <label class="form-check-label" for="section-sw">
+                                    <i class="bi bi-droplet"></i> Treated Sewage
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input section-check" type="checkbox" value="alerts" id="section-alerts" checked>
+                                <label class="form-check-label" for="section-alerts">
+                                    <i class="bi bi-exclamation-triangle text-danger"></i> Alerts Summary
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="generate-report-btn">
+                        <i class="bi bi-download"></i> Generate & Download
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Generation Script -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Date preset handling
+        function setDateRange(days) {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - days);
+            
+            const endInput = document.getElementById('report-end-date');
+            const startInput = document.getElementById('report-start-date');
+            if (endInput && startInput) {
+                endInput.value = endDate.toISOString().split('T')[0];
+                startInput.value = startDate.toISOString().split('T')[0];
+            }
+        }
+        
+        // Initialize with 30 days
+        setDateRange(30);
+        
+        // Date preset buttons
+        document.querySelectorAll('.report-date-preset').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.report-date-preset').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                setDateRange(parseInt(this.dataset.days));
+            });
+        });
+        
+        // When date inputs change manually, remove preset active state
+        ['report-start-date', 'report-end-date'].forEach(id => {
+            const input = document.getElementById(id);
+            if (input) {
+                input.addEventListener('change', function() {
+                    document.querySelectorAll('.report-date-preset').forEach(b => b.classList.remove('active'));
+                });
+            }
+        });
+        
+        // Generate report button
+        const generateBtn = document.getElementById('generate-report-btn');
+        if (generateBtn) {
+            generateBtn.addEventListener('click', async function() {
+                const btn = this;
+                const originalText = btn.innerHTML;
+                
+                // Get selected vessel
+                const vesselSelect = document.getElementById('report-vessel');
+                const vesselId = vesselSelect ? vesselSelect.value : null;
+                
+                // Get selected sections
+                const sections = Array.from(document.querySelectorAll('.section-check:checked'))
+                    .map(cb => cb.value);
+                
+                if (sections.length === 0) {
+                    alert('Please select at least one section');
+                    return;
+                }
+                
+                // Show loading state
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
+                
+                try {
+                    const response = await fetch('/api/generate-report', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                        },
+                        body: JSON.stringify({
+                            vessel_id: vesselId,
+                            start_date: document.getElementById('report-start-date').value,
+                            end_date: document.getElementById('report-end-date').value,
+                            sections: sections
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errData = await response.json();
+                        throw new Error(errData.error || 'Failed to generate report');
+                    }
+                    
+                    // Download the PDF
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const disposition = response.headers.get('Content-Disposition');
+                    let filename = 'report.pdf';
+                    if (disposition && disposition.includes('filename=')) {
+                        filename = disposition.split('filename=')[1].replace(/"/g, '');
+                    }
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('reportModal'));
+                    if (modal) modal.hide();
+                } catch (error) {
+                    alert('Error generating report: ' + error.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            });
+        }
+    });
+    </script>
+
+</body>
+</html>

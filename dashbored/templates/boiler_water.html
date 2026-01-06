@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+
+{% block title %}Boiler Water - {{ vessel.vessel_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb and Title - Full Width -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('dashboard', vessel_id=vessel.id) }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Boiler Water</li>
+                </ol>
+            </nav>
+            <h2><i class="bi bi-droplet-fill text-primary"></i> Boiler Water Analysis</h2>
+            <p class="text-muted">{{ vessel.vessel_name }}</p>
+        </div>
+    </div>
+
+    <!-- Date Range Filter - Full Width (100%) -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-calendar-range"></i> Date Range Filter</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3 align-items-end">
+                        <div class="col-lg-3 col-md-4">
+                            <label for="start_date" class="form-label"><strong>Start Date</strong></label>
+                            <input type="date" class="form-control form-control-lg" id="start_date" name="start_date"
+                                   value="{{ start_date }}">
+                        </div>
+                        <div class="col-lg-3 col-md-4">
+                            <label for="end_date" class="form-label"><strong>End Date</strong></label>
+                            <input type="date" class="form-control form-control-lg" id="end_date" name="end_date"
+                                   value="{{ end_date }}">
+                        </div>
+                        <div class="col-lg-3 col-md-2">
+                            <button type="submit" class="btn btn-primary btn-lg w-100">
+                                <i class="bi bi-funnel"></i> Apply Filter
+                            </button>
+                        </div>
+                        <div class="col-lg-3 col-md-2">
+                            <button type="button" class="btn btn-outline-secondary btn-lg w-100"
+                                    onclick="window.location.href='{{ url_for('boiler_water') }}'">
+                                <i class="bi bi-x-circle"></i> Reset
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar and Main Content Row -->
+    <div class="row">
+        <!-- Left Sidebar - Boiler Selector -->
+        <div class="col-lg-2 col-md-3">
+            <div class="card shadow sticky-top" style="top: 20px;">
+                <div class="card-header bg-primary text-white text-center">
+                    <h6 class="mb-0"><i class="bi bi-droplet-fill"></i> Boilers</h6>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="#boiler1" class="list-group-item list-group-item-action text-center py-3 active">
+                        <div><i class="bi bi-droplet-fill d-block mb-1" style="font-size: 1.3rem;"></i></div>
+                        <strong>AB 1</strong>
+                    </a>
+                    <a href="#boiler2" class="list-group-item list-group-item-action text-center py-3">
+                        <div><i class="bi bi-droplet-fill d-block mb-1" style="font-size: 1.3rem;"></i></div>
+                        <strong>AB 2</strong>
+                    </a>
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted"><i class="bi bi-info-circle"></i> Quick navigation</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="col-lg-7 col-md-6">
+            <!-- Auxiliary Boiler 1 -->
+            <div id="boiler1" class="mb-5">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h4 class="mb-0"><i class="bi bi-droplet-fill"></i> Auxiliary Boiler 1 (AB1)</h4>
+                    </div>
+                    <div class="card-body">
+                        {% if boiler1_data %}
+                            <div id="boiler1-charts"></div>
+                        {% else %}
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle"></i> No data available for Auxiliary Boiler 1 in the selected date range.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Auxiliary Boiler 2 -->
+            <div id="boiler2" class="mb-5">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h4 class="mb-0"><i class="bi bi-droplet-fill"></i> Auxiliary Boiler 2 (AB2)</h4>
+                    </div>
+                    <div class="card-body">
+                        {% if boiler2_data %}
+                            <div id="boiler2-charts"></div>
+                        {% else %}
+                            <div class="alert alert-info mb-0">
+                                <i class="bi bi-info-circle"></i> No data available for Auxiliary Boiler 2 in the selected date range.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reference Ranges -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-table"></i> Recommended Parameter Ranges</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Range</th>
+                                    <th>Recommended Limit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Phosphate</td>
+                                    <td>0-100 ppm</td>
+                                    <td>20-50 ppm PO4</td>
+                                </tr>
+                                <tr>
+                                    <td>P-Alkalinity</td>
+                                    <td>25-300 ppm</td>
+                                    <td>150-300 ppm CaCO3</td>
+                                </tr>
+                                <tr>
+                                    <td>M-Alkalinity</td>
+                                    <td>0-500 ppm</td>
+                                    <td>700 ppm CaCO3</td>
+                                </tr>
+                                <tr>
+                                    <td>Chloride</td>
+                                    <td>-</td>
+                                    <td>200 ppm max</td>
+                                </tr>
+                                <tr>
+                                    <td>pH</td>
+                                    <td>-</td>
+                                    <td>8.5-9.2</td>
+                                </tr>
+                                <tr>
+                                    <td>Hydrazine</td>
+                                    <td>0-0.5 mg/L</td>
+                                    <td>0-0.5 mg/L</td>
+                                </tr>
+                                <tr>
+                                    <td>DEHA</td>
+                                    <td>0-0.5 mg/L</td>
+                                    <td>0-0.5 mg/L</td>
+                                </tr>
+                                <tr>
+                                    <td>Conductivity</td>
+                                    <td>0-2250 µS/cm</td>
+                                    <td>-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- End Main Content Area -->
+
+        <!-- Right Sidebar -->
+        <div class="col-lg-3 col-md-3 mb-4">
+            <!-- Vessel Selector -->
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-ship"></i> Select Vessel</h6>
+                    <select class="form-select" id="vessel-selector">
+                        {% for v in vessels %}
+                        <option value="{{ v.id }}" {% if v.id == vessel.id %}selected{% endif %}>
+                            {{ v.vessel_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-muted small mt-2 mb-0">{{ vessel.vessel_id }}</p>
+                </div>
+            </div>
+
+            <!-- Boiler Alerts -->
+            <div class="card border-danger">
+                <div class="card-header" style="background-color: #dc3545; color: white;">
+                    <h6 class="mb-0 text-white"><i class="bi bi-exclamation-triangle-fill"></i> Boiler Alerts</h6>
+                </div>
+                <div class="card-body">
+                    {% if alerts %}
+                        <div class="list-group list-group-flush">
+                            {% for alert in alerts[:5] %}
+                            <div class="list-group-item px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="small">
+                                        <strong>{{ alert.sampling_point_name or 'N/A' }}</strong><br>
+                                        <span class="text-muted">{{ alert.parameter_name }}</span><br>
+                                        <span class="badge bg-danger">{{ alert.measured_value }}</span>
+                                        <small class="text-muted">{{ alert.alert_date[:10] }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="mb-0" style="color: #6e6e73;">
+                            <i class="bi bi-check-circle-fill" style="color: #0071e3;"></i> No active alerts
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Plotly.js for charts -->
+<script src="{{ url_for('static', filename='js/plotly-2.27.0.min.js') }}"></script>
+<script>
+// Out of Range helper functions
+function formatMeasurementValue(value) {
+    const numValue = parseFloat(value);
+    if (numValue >= 99999999999 || numValue <= -99999999999) {
+        return "Out of Range";
+    }
+    return value;
+}
+function isOutOfRange(value) {
+    const numValue = parseFloat(value);
+    return numValue >= 99999999999 || numValue <= -99999999999;
+}
+
+// Vessel selector - reload page when vessel changes
+const vesselSelector = document.getElementById('vessel-selector');
+if (vesselSelector) {
+    vesselSelector.addEventListener('change', function() {
+        const newVesselId = this.value;
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('vessel_id', newVesselId);
+        window.location.href = currentUrl.toString();
+    });
+}
+</script>
+<script>
+// Convert date from YYYY-MM-DD or full timestamp to dd-mm-yy format
+function formatDateForHover(dateStr) {
+    // Extract date portion if it's a full timestamp
+    const datePart = dateStr.split(' ')[0];
+    const parts = datePart.split('-');
+    if (parts.length === 3) {
+        const year = parts[0].slice(-2); // Get last 2 digits of year
+        const month = parts[1];
+        const day = parts[2];
+        return `${day}-${month}-${year}`;
+    }
+    return dateStr;
+}
+
+// Organize data by parameter
+function organizeDataByParameter(measurements) {
+    const byParameter = {};
+
+    measurements.forEach(m => {
+        const paramName = m.parameter_name;
+        if (!byParameter[paramName]) {
+            byParameter[paramName] = {
+                dates: [],
+                values: [],
+                statuses: [],
+                limits: { low: null, high: null }
+            };
+        }
+
+        byParameter[paramName].dates.push(m.measurement_date);
+        byParameter[paramName].values.push(isOutOfRange(m.value_numeric) ? null : m.value_numeric);
+        byParameter[paramName].statuses.push(m.ideal_status);
+
+        if (m.ideal_low !== null) byParameter[paramName].limits.low = m.ideal_low;
+        if (m.ideal_high !== null) byParameter[paramName].limits.high = m.ideal_high;
+    });
+
+    return byParameter;
+}
+
+// Create time series chart for a parameter
+function createParameterChart(containerId, paramName, data) {
+    const trace = {
+        x: data.dates,
+        y: data.values,
+        mode: 'lines+markers',
+        name: paramName,
+        line: { width: 2 },
+        marker: {
+            size: 6,
+            color: data.statuses.map(status => {
+                if (status === 'OKAY') return 'green';
+                if (status === 'TOO LOW' || status === 'TOO HIGH') return 'red';
+                return 'orange';
+            })
+        },
+        hovertemplate: `${paramName}<br>Date: %{customdata}<br>Value: %{y}<extra></extra>`,
+        customdata: data.dates.map(d => formatDateForHover(d))
+    };
+
+    const shapes = [];
+    if (data.limits.low !== null && data.limits.high !== null) {
+        // Add shaded area for ideal range
+        shapes.push({
+            type: 'rect',
+            xref: 'paper',
+            x0: 0,
+            x1: 1,
+            y0: data.limits.low,
+            y1: data.limits.high,
+            fillcolor: 'rgba(0, 255, 0, 0.1)',
+            line: { width: 0 }
+        });
+    }
+
+    // Calculate date range with 10% padding
+    const allDates = data.dates.map(d => new Date(d));
+    let minDate = new Date(Math.min(...allDates));
+    let maxDate = new Date(Math.max(...allDates));
+
+    // Add 10% padding on both sides
+    const dateRange = maxDate.getTime() - minDate.getTime();
+    const padding = dateRange * 0.10;
+    minDate = new Date(minDate.getTime() - padding);
+    maxDate = new Date(maxDate.getTime() + padding);
+
+    // Handle single date case
+    if (dateRange === 0) {
+        minDate = new Date(minDate.getTime() - 86400000);
+        maxDate = new Date(maxDate.getTime() + 86400000);
+    }
+
+    const layout = {
+        title: paramName,
+        xaxis: {
+            title: 'Date',
+            tickformat: '%d-%m-%y',
+            range: [minDate, maxDate],
+            ticklen: dateRange === 0 ? 0 : 5
+        },
+        yaxis: {
+                    automargin: true, title: 'Value' },
+        shapes: shapes,
+        hovermode: 'closest'
+    };
+
+    const div = document.createElement('div');
+    div.style.marginBottom = '20px';
+    document.getElementById(containerId).appendChild(div);
+
+    Plotly.newPlot(div, [trace], layout, { responsive: true });
+}
+
+// Render charts for boiler 1
+{% if boiler1_data %}
+const boiler1Data = {{ boiler1_data | tojson }};
+const boiler1ByParam = organizeDataByParameter(boiler1Data);
+
+Object.keys(boiler1ByParam).forEach(paramName => {
+    createParameterChart('boiler1-charts', paramName, boiler1ByParam[paramName]);
+});
+{% endif %}
+
+// Render charts for boiler 2
+{% if boiler2_data %}
+const boiler2Data = {{ boiler2_data | tojson }};
+const boiler2ByParam = organizeDataByParameter(boiler2Data);
+
+Object.keys(boiler2ByParam).forEach(paramName => {
+    createParameterChart('boiler2-charts', paramName, boiler2ByParam[paramName]);
+});
+{% endif %}
+</script>
+{% endblock %}
